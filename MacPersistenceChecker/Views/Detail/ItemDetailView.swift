@@ -106,6 +106,26 @@ struct ItemDetailContent: View {
 
                 Divider()
 
+                // LOLBins Detection
+                LOLBinsSection(item: item)
+
+                Divider()
+
+                // Binary Reputation
+                BinaryReputationSection(item: item)
+
+                Divider()
+
+                // Intent Mismatch Analysis
+                IntentMismatchSection(item: item)
+
+                Divider()
+
+                // Binary Age Analysis
+                BinaryAgeSection(item: item)
+
+                Divider()
+
                 // MITRE ATT&CK
                 MITRESection(item: item)
 
@@ -1432,6 +1452,624 @@ struct DetailRow: View {
 
             Spacer()
         }
+    }
+}
+
+// MARK: - LOLBins Section
+
+struct LOLBinsSection: View {
+    let item: PersistenceItem
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader(title: "LOLBins Detection", icon: "terminal.fill")
+
+            if let detections = item.lolbinsDetections, !detections.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    // Summary
+                    HStack {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.orange)
+                        Text("\(detections.count) LOLBin\(detections.count > 1 ? "s" : "") detected")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+
+                        Spacer()
+
+                        if let risk = item.lolbinsRisk {
+                            Text("+\(risk) pts")
+                                .font(.caption)
+                                .fontWeight(.bold)
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.orange)
+                                .clipShape(Capsule())
+                        }
+                    }
+
+                    // Detection list
+                    ForEach(detections) { detection in
+                        LOLBinDetectionRow(detection: detection)
+                    }
+                }
+                .padding()
+                .background(Color.orange.opacity(0.1))
+                .cornerRadius(8)
+            } else {
+                HStack {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.green)
+                    Text("No LOLBins detected in this persistence item")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                .padding()
+                .background(Color.green.opacity(0.1))
+                .cornerRadius(8)
+            }
+        }
+    }
+}
+
+struct LOLBinDetectionRow: View {
+    let detection: PersistenceItem.LOLBinDetection
+
+    private var severityColor: Color {
+        switch detection.severity {
+        case "Critical": return .red
+        case "High": return .orange
+        case "Medium": return .yellow
+        default: return .gray
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                // Binary name
+                Text(detection.binary)
+                    .font(.system(.caption, design: .monospaced))
+                    .fontWeight(.bold)
+                    .foregroundColor(.primary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.secondary.opacity(0.2))
+                    .cornerRadius(4)
+
+                // Category tag
+                Text(detection.category)
+                    .font(.caption2)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.blue)
+                    .cornerRadius(4)
+
+                // Severity
+                Text(detection.severity)
+                    .font(.caption2)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(severityColor)
+                    .cornerRadius(4)
+
+                Spacer()
+
+                // Points
+                Text("+\(detection.riskPoints)")
+                    .font(.caption)
+                    .fontWeight(.bold)
+                    .foregroundColor(severityColor)
+            }
+
+            Text(detection.reason)
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if let mitre = detection.mitreTechnique {
+                HStack(spacing: 4) {
+                    Image(systemName: "link")
+                        .font(.caption2)
+                    Text("MITRE: \(mitre)")
+                        .font(.caption2)
+                }
+                .foregroundColor(.blue)
+            }
+        }
+        .padding(8)
+        .background(Color.secondary.opacity(0.05))
+        .cornerRadius(6)
+    }
+}
+
+// MARK: - Binary Reputation Section
+
+struct BinaryReputationSection: View {
+    let item: PersistenceItem
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader(title: "Binary Reputation", icon: "shield.lefthalf.filled")
+
+            if let anomalies = item.behavioralAnomalies, !anomalies.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    // Summary header
+                    HStack {
+                        Image(systemName: "exclamationmark.shield.fill")
+                            .foregroundColor(severityColor(item.behavioralSeverity))
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Behavioral Anomalies Detected")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            Text("Advanced heuristics found suspicious patterns in this binary.")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+
+                        Spacer()
+
+                        Text(item.behavioralSeverity ?? "Medium")
+                            .font(.caption)
+                            .fontWeight(.bold)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(severityColor(item.behavioralSeverity))
+                            .clipShape(Capsule())
+                    }
+                    .padding()
+                    .background(severityColor(item.behavioralSeverity).opacity(0.1))
+                    .cornerRadius(8)
+
+                    // Anomaly list
+                    ForEach(anomalies) { anomaly in
+                        BehavioralAnomalyRow(anomaly: anomaly)
+                    }
+                }
+            } else {
+                HStack {
+                    Image(systemName: "checkmark.shield.fill")
+                        .foregroundColor(.green)
+                    Text("No behavioral anomalies detected")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                .padding()
+                .background(Color.green.opacity(0.1))
+                .cornerRadius(8)
+            }
+        }
+    }
+
+    private func severityColor(_ severity: String?) -> Color {
+        switch severity {
+        case "Critical": return .red
+        case "High": return .orange
+        case "Medium": return .yellow
+        default: return .gray
+        }
+    }
+}
+
+struct BehavioralAnomalyRow: View {
+    let anomaly: PersistenceItem.BehavioralAnomaly
+
+    private var severityColor: Color {
+        switch anomaly.severity {
+        case "Critical": return .red
+        case "High": return .orange
+        case "Medium": return .yellow
+        default: return .gray
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                // Title with icon
+                Image(systemName: anomalyIcon)
+                    .foregroundColor(severityColor)
+
+                Text(anomaly.title)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+
+                // Tags
+                ForEach(anomaly.tags, id: \.self) { tag in
+                    Text(tag)
+                        .font(.caption2)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.blue.opacity(0.8))
+                        .cornerRadius(4)
+                }
+
+                Spacer()
+
+                // Points
+                Text("+\(anomaly.riskPoints)")
+                    .font(.caption)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(severityColor)
+                    .clipShape(Capsule())
+            }
+
+            Text(anomaly.description)
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding()
+        .background(severityColor.opacity(0.1))
+        .cornerRadius(8)
+    }
+
+    private var anomalyIcon: String {
+        switch anomaly.type {
+        case "Hidden Persistence Guard": return "eye.slash.fill"
+        case "Aggressive Persistence": return "bolt.fill"
+        case "Stealthy Auto-Start": return "moon.fill"
+        case "Orphaned Persistence": return "questionmark.folder.fill"
+        case "Suspicious Location": return "folder.badge.questionmark"
+        case "Privilege Escalation Risk": return "arrow.up.circle.fill"
+        case "Network-Enabled Persistence": return "network"
+        case "Script-Based Persistence": return "doc.text.fill"
+        case "Hidden From User": return "eye.slash.circle.fill"
+        case "Frequent Restart Pattern": return "arrow.clockwise.circle.fill"
+        default: return "exclamationmark.triangle.fill"
+        }
+    }
+}
+
+// MARK: - Intent Mismatch Section
+
+struct IntentMismatchSection: View {
+    let item: PersistenceItem
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader(title: "Plist vs Binary Intent", icon: "arrow.left.arrow.right")
+
+            if let mismatches = item.intentMismatches, !mismatches.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    // Summary header
+                    HStack {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(severityColor(item.intentMismatchSeverity))
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Intent Mismatch Detected")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            Text("What the plist declares doesn't match what the binary can do.")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+
+                        Spacer()
+
+                        if let risk = item.intentMismatchRiskPoints {
+                            Text("+\(risk) pts")
+                                .font(.caption)
+                                .fontWeight(.bold)
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(severityColor(item.intentMismatchSeverity))
+                                .clipShape(Capsule())
+                        }
+                    }
+                    .padding()
+                    .background(severityColor(item.intentMismatchSeverity).opacity(0.1))
+                    .cornerRadius(8)
+
+                    // Mismatch list
+                    ForEach(mismatches) { mismatch in
+                        IntentMismatchRow(mismatch: mismatch)
+                    }
+                }
+            } else {
+                HStack {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.green)
+                    Text("Plist intent matches binary capabilities")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                .padding()
+                .background(Color.green.opacity(0.1))
+                .cornerRadius(8)
+            }
+        }
+    }
+
+    private func severityColor(_ severity: String?) -> Color {
+        switch severity {
+        case "Critical": return .red
+        case "High": return .orange
+        case "Medium": return .yellow
+        default: return .gray
+        }
+    }
+}
+
+struct IntentMismatchRow: View {
+    let mismatch: PersistenceItem.IntentMismatch
+
+    private var severityColor: Color {
+        switch mismatch.severity {
+        case "Critical": return .red
+        case "High": return .orange
+        case "Medium": return .yellow
+        default: return .gray
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Image(systemName: "arrow.left.arrow.right.circle.fill")
+                    .foregroundColor(severityColor)
+
+                Text(mismatch.title)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+
+                Spacer()
+
+                Text("+\(mismatch.riskPoints)")
+                    .font(.caption)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(severityColor)
+                    .clipShape(Capsule())
+            }
+
+            Text(mismatch.description)
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            // Plist vs Binary comparison
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "doc.text")
+                            .font(.caption2)
+                        Text("Plist Says:")
+                            .font(.caption2)
+                            .fontWeight(.semibold)
+                    }
+                    .foregroundColor(.blue)
+
+                    Text(mismatch.plistIntent)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.blue.opacity(0.1))
+                .cornerRadius(6)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "terminal")
+                            .font(.caption2)
+                        Text("Binary Does:")
+                            .font(.caption2)
+                            .fontWeight(.semibold)
+                    }
+                    .foregroundColor(.red)
+
+                    Text(mismatch.binaryReality)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.red.opacity(0.1))
+                .cornerRadius(6)
+            }
+        }
+        .padding()
+        .background(severityColor.opacity(0.05))
+        .cornerRadius(8)
+    }
+}
+
+// MARK: - Binary Age Section
+
+struct BinaryAgeSection: View {
+    let item: PersistenceItem
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader(title: "Binary Age Analysis", icon: "calendar.badge.clock")
+
+            if let anomalies = item.ageAnomalies, !anomalies.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    // Summary header
+                    HStack {
+                        Image(systemName: "clock.badge.exclamationmark.fill")
+                            .foregroundColor(severityColor(item.ageAnomalySeverity))
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Suspicious Timestamp Pattern")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            Text("Binary age doesn't match persistence age - possible post-install modification.")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+
+                        Spacer()
+
+                        if let risk = item.ageAnomalyRiskPoints {
+                            Text("+\(risk) pts")
+                                .font(.caption)
+                                .fontWeight(.bold)
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(severityColor(item.ageAnomalySeverity))
+                                .clipShape(Capsule())
+                        }
+                    }
+                    .padding()
+                    .background(severityColor(item.ageAnomalySeverity).opacity(0.1))
+                    .cornerRadius(8)
+
+                    // Anomaly list
+                    ForEach(anomalies) { anomaly in
+                        AgeAnomalyRow(anomaly: anomaly)
+                    }
+                }
+            } else {
+                HStack {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.green)
+                    Text("Binary and persistence timestamps are consistent")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                .padding()
+                .background(Color.green.opacity(0.1))
+                .cornerRadius(8)
+            }
+        }
+    }
+
+    private func severityColor(_ severity: String?) -> Color {
+        switch severity {
+        case "Critical": return .red
+        case "High": return .orange
+        case "Medium": return .yellow
+        default: return .gray
+        }
+    }
+}
+
+struct AgeAnomalyRow: View {
+    let anomaly: PersistenceItem.AgeAnomaly
+
+    private var severityColor: Color {
+        switch anomaly.severity {
+        case "Critical": return .red
+        case "High": return .orange
+        case "Medium": return .yellow
+        default: return .gray
+        }
+    }
+
+    private var anomalyIcon: String {
+        switch anomaly.type {
+        case "Old Plist, New Binary": return "arrow.up.doc.fill"
+        case "Binary Newer Than Notarization": return "clock.badge.exclamationmark"
+        case "Silent Binary Swap": return "arrow.triangle.swap"
+        case "Recent Binary, Old Plist": return "calendar.badge.exclamationmark"
+        case "Mismatched Timestamps": return "exclamationmark.triangle.fill"
+        case "Suspicious Modification Time": return "moon.stars.fill"
+        case "Binary Modified After Install": return "pencil.circle.fill"
+        default: return "clock.badge.questionmark"
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Image(systemName: anomalyIcon)
+                    .foregroundColor(severityColor)
+
+                Text(anomaly.title)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+
+                Spacer()
+
+                Text("+\(anomaly.riskPoints)")
+                    .font(.caption)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(severityColor)
+                    .clipShape(Capsule())
+            }
+
+            Text(anomaly.description)
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            // Timestamp comparison
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "doc.text")
+                            .font(.caption2)
+                        Text("Plist Age:")
+                            .font(.caption2)
+                            .fontWeight(.semibold)
+                    }
+                    .foregroundColor(.blue)
+
+                    Text(anomaly.plistAge)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.blue.opacity(0.1))
+                .cornerRadius(6)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "terminal")
+                            .font(.caption2)
+                        Text("Binary Age:")
+                            .font(.caption2)
+                            .fontWeight(.semibold)
+                    }
+                    .foregroundColor(.purple)
+
+                    Text(anomaly.binaryAge)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.purple.opacity(0.1))
+                .cornerRadius(6)
+            }
+
+            // Time difference badge
+            HStack {
+                Image(systemName: "arrow.left.arrow.right")
+                    .font(.caption2)
+                Text(anomaly.timeDifference)
+                    .font(.caption)
+                    .fontWeight(.medium)
+            }
+            .foregroundColor(severityColor)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(severityColor.opacity(0.15))
+            .cornerRadius(6)
+        }
+        .padding()
+        .background(severityColor.opacity(0.05))
+        .cornerRadius(8)
     }
 }
 

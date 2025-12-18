@@ -71,6 +71,50 @@ Every persistence item gets a **Risk Score (0-100)** based on multiple factors:
 - **Notarization Gaps** - Recent apps lacking notarization
 - **Developer Certificate Analysis** - Team ID validation against known vendors
 
+### LOLBins Detection (Living-off-the-Land Binaries)
+Detects suspicious use of legitimate macOS binaries in persistence contexts. **The combo matters:**
+
+- **osascript + persistence** = AppleScript with auto-start (GUI automation abuse)
+- **curl/wget + RunAtLoad** = Download & execute pattern
+- **python + privileged helper** = Elevated script execution
+- **security + KeepAlive** = Credential harvesting risk
+- **launchctl + auto-start** = Meta-persistence installer
+- **netcat + persistence** = Reverse shell / C2 channel
+
+40+ LOLBins tracked with MITRE ATT&CK mappings and context-aware severity scoring.
+
+### Binary Reputation & Behavioral Analysis
+Advanced heuristics to detect suspicious behavioral patterns:
+
+- **Hidden Persistence Guard** - KeepAlive agent without obvious watchdog purpose
+- **Aggressive Persistence** - RunAtLoad + KeepAlive on non-service items
+- **Stealthy Auto-Start** - Background process from unknown vendor
+- **Orphaned Persistence** - Plist points to non-existent executable
+- **Suspicious Location** - Executable in `/tmp/`, `/Users/Shared/`, or hidden directories
+- **Privilege Escalation Risk** - User agent attempting privileged operations
+- **Network-Enabled Persistence** - Persistence with network capabilities
+- **Script-Based Persistence** - Inline scripts via interpreters
+- **System Process Impersonation** - Non-Apple item using Apple-like naming
+- **Frequent Restart Pattern** - StartInterval < 60 seconds
+
+### Plist vs Binary Intent Mismatch
+Detects when what the plist declares doesn't match what the binary actually does - **exactly what modern droppers do:**
+
+- **Innocent Plist, Heavy Binary** - Simple config but binary has dangerous entitlements
+- **Passive Helper with Network** - Background helper with network client/server access
+- **Passive Helper with Dylib Loading** - Helper that can load unsigned code
+- **Minimal Config, Maximum Capabilities** - Minimal plist but extensive entitlements
+- **Simple Task with Keychain Access** - Simple-looking task with credential access
+
+### Binary Age vs Persistence Age
+Detects suspicious timestamp patterns that indicate post-install malicious updates:
+
+- **Old Plist, New Binary** - Classic "malicious update post-install" pattern
+- **Silent Binary Swap** - Binary modified without plist change
+- **Timestamp Manipulation** - Modification date before creation date (impossible)
+- **Suspicious Modification Time** - Binary modified at 2-5 AM
+- **Binary Modified After Install** - Non-updater binary changed after initial install
+
 ### Trust Levels
 - 🟢 **Apple** - Signed by Apple
 - 🔵 **Known Vendor** - Verified third-party software
@@ -183,12 +227,34 @@ Comprehensive radar chart showing Trust, Signature, Safety, Stability, Transpare
 
 ---
 
+## Forensic JSON Export
+
+Machine-readable export for security pipelines:
+
+- **SIEM Integration** - Ingestible by Splunk, Elastic, etc.
+- **SOAR Compatibility** - Ready for automated response workflows
+- **LLM Analysis** - Structured data for AI-powered analysis
+- **IR Pipelines** - Compatible with OSINT and incident response tools
+
+### Export Contents
+- Full system metadata (hostname, macOS version, hardware model, serial)
+- All persistence items with complete analysis
+- Risk scores, LOLBins, behavioral anomalies, intent mismatches, age analysis
+- MITRE ATT&CK mappings
+- Complete forensic timeline with Unix timestamps
+- Critical findings with recommendations
+
+**Button enabled only after scan completion.**
+
+---
+
 ## Actions
 
 - **Reveal in Finder** - Quickly locate files
 - **Open Plist** - View configuration files
 - **View Graph** - Per-item graph visualization
 - **Disable/Enable** - Safely disable items (with admin privileges for system items)
+- **Export JSON** - Export forensic report for SIEM/SOAR/IR
 
 ---
 

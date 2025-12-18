@@ -80,6 +80,10 @@ struct ContentView: View {
                 .disabled(appState.items.isEmpty)
                 .help("View statistics dashboard with charts")
             }
+
+            ToolbarItem(placement: .primaryAction) {
+                ForensicExportButton()
+            }
         }
         .sheet(isPresented: $appState.showSnapshotsSheet) {
             SnapshotListView()
@@ -129,6 +133,103 @@ struct GraphSheetView: View {
     }
 }
 
+
+// MARK: - Forensic Export Button
+
+struct ForensicExportButton: View {
+    @EnvironmentObject var appState: AppState
+    @State private var isExporting = false
+    @State private var exportProgress: Double = 0
+    @State private var showExportSuccess = false
+    @State private var showExportError = false
+    @State private var errorMessage = ""
+    @State private var exportedURL: URL?
+
+    var body: some View {
+        Button {
+            exportForensicJSON()
+        } label: {
+            if isExporting {
+                HStack(spacing: 6) {
+                    ProgressView()
+                        .scaleEffect(0.6)
+                        .frame(width: 16, height: 16)
+                    Text("Exporting...")
+                        .font(.caption)
+                }
+            } else {
+                Label("Export JSON", systemImage: "square.and.arrow.up")
+            }
+        }
+        .disabled(appState.items.isEmpty || isExporting)
+        .help(appState.items.isEmpty ? "Run a scan first to export data" : "Export forensic JSON for SIEM/SOAR/IR")
+        .alert("Export Successful", isPresented: $showExportSuccess) {
+            Button("Show in Finder") {
+                if let url = exportedURL {
+                    NSWorkspace.shared.selectFile(url.path, inFileViewerRootedAtPath: url.deletingLastPathComponent().path)
+                }
+            }
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Forensic JSON report has been saved.\n\(appState.items.count) items exported.")
+        }
+        .alert("Export Failed", isPresented: $showExportError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(errorMessage)
+        }
+    }
+
+    private func exportForensicJSON() {
+        let savePanel = NSSavePanel()
+        savePanel.allowedContentTypes = [.json]
+        savePanel.nameFieldStringValue = "forensic_report_\(formattedDate()).json"
+        savePanel.title = "Export Forensic JSON"
+        savePanel.message = "Choose where to save the forensic report"
+
+        savePanel.begin { result in
+            if result == .OK, let url = savePanel.url {
+                isExporting = true
+                exportProgress = 0
+
+                // Run export on background thread
+                Task.detached(priority: .userInitiated) {
+                    do {
+                        // Get items on main actor
+                        let items = await MainActor.run { appState.items }
+
+                        // Generate report (heavy operation)
+                        let exporter = ForensicExporter.shared
+                        guard let json = exporter.exportToJSON(items: items) else {
+                            throw ForensicExporter.ExportError.encodingFailed
+                        }
+
+                        // Write to file
+                        try json.write(to: url, atomically: true, encoding: .utf8)
+
+                        await MainActor.run {
+                            isExporting = false
+                            exportedURL = url
+                            showExportSuccess = true
+                        }
+                    } catch {
+                        await MainActor.run {
+                            isExporting = false
+                            errorMessage = error.localizedDescription
+                            showExportError = true
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func formattedDate() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd_HHmmss"
+        return formatter.string(from: Date())
+    }
+}
 
 // MARK: - Extended Scanners Toolbar Button
 

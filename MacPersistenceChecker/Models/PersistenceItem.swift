@@ -156,6 +156,183 @@ struct PersistenceItem: Identifiable, Equatable, Codable, Hashable {
         }
     }
 
+    // MARK: - LOLBins Detection
+
+    /// LOLBins detections for this item
+    var lolbinsDetections: [LOLBinDetection]?
+
+    /// Total LOLBins risk score
+    var lolbinsRisk: Int?
+
+    /// Simple struct for LOLBin detection results
+    struct LOLBinDetection: Codable, Identifiable, Hashable {
+        let id: UUID
+        let binary: String
+        let category: String
+        let severity: String
+        let description: String
+        let reason: String
+        let mitreTechnique: String?
+        let riskPoints: Int
+
+        init(from detection: LOLBinsDetector.LOLBinDetection) {
+            self.id = UUID()
+            self.binary = detection.binary
+            self.category = detection.category.rawValue
+            self.severity = detection.severity.rawValue
+            self.description = detection.description
+            self.reason = detection.reason
+            self.mitreTechnique = detection.mitreTechnique
+            self.riskPoints = detection.riskPoints
+        }
+
+        init(id: UUID = UUID(), binary: String, category: String, severity: String, description: String, reason: String, mitreTechnique: String?, riskPoints: Int) {
+            self.id = id
+            self.binary = binary
+            self.category = category
+            self.severity = severity
+            self.description = description
+            self.reason = reason
+            self.mitreTechnique = mitreTechnique
+            self.riskPoints = riskPoints
+        }
+    }
+
+    // MARK: - Binary Reputation
+
+    /// Behavioral anomalies detected
+    var behavioralAnomalies: [BehavioralAnomaly]?
+
+    /// Overall behavioral reputation severity
+    var behavioralSeverity: String?
+
+    /// Total behavioral risk points
+    var behavioralRiskPoints: Int?
+
+    /// Simple struct for behavioral anomaly results
+    struct BehavioralAnomaly: Codable, Identifiable, Hashable {
+        let id: UUID
+        let type: String
+        let title: String
+        let description: String
+        let severity: String
+        let riskPoints: Int
+        let tags: [String]
+
+        init(from anomaly: BinaryReputationAnalyzer.BehavioralAnomaly) {
+            self.id = UUID()
+            self.type = anomaly.type.rawValue
+            self.title = anomaly.title
+            self.description = anomaly.description
+            self.severity = anomaly.severity.rawValue
+            self.riskPoints = anomaly.riskPoints
+            self.tags = anomaly.tags
+        }
+
+        init(id: UUID = UUID(), type: String, title: String, description: String, severity: String, riskPoints: Int, tags: [String]) {
+            self.id = id
+            self.type = type
+            self.title = title
+            self.description = description
+            self.severity = severity
+            self.riskPoints = riskPoints
+            self.tags = tags
+        }
+    }
+
+    // MARK: - Intent Mismatch Analysis
+
+    /// Intent mismatches detected (plist vs binary behavior)
+    var intentMismatches: [IntentMismatch]?
+
+    /// Overall intent mismatch severity
+    var intentMismatchSeverity: String?
+
+    /// Total intent mismatch risk points
+    var intentMismatchRiskPoints: Int?
+
+    /// Simple struct for intent mismatch results
+    struct IntentMismatch: Codable, Identifiable, Hashable {
+        let id: UUID
+        let type: String
+        let title: String
+        let description: String
+        let severity: String
+        let riskPoints: Int
+        let plistIntent: String
+        let binaryReality: String
+
+        init(from mismatch: IntentMismatchAnalyzer.IntentMismatch) {
+            self.id = mismatch.id
+            self.type = mismatch.type.rawValue
+            self.title = mismatch.title
+            self.description = mismatch.description
+            self.severity = mismatch.severity.rawValue
+            self.riskPoints = mismatch.riskPoints
+            self.plistIntent = mismatch.plistIntent
+            self.binaryReality = mismatch.binaryReality
+        }
+
+        init(id: UUID = UUID(), type: String, title: String, description: String, severity: String, riskPoints: Int, plistIntent: String, binaryReality: String) {
+            self.id = id
+            self.type = type
+            self.title = title
+            self.description = description
+            self.severity = severity
+            self.riskPoints = riskPoints
+            self.plistIntent = plistIntent
+            self.binaryReality = binaryReality
+        }
+    }
+
+    // MARK: - Binary Age Analysis
+
+    /// Age anomalies detected (plist age vs binary age)
+    var ageAnomalies: [AgeAnomaly]?
+
+    /// Overall age anomaly severity
+    var ageAnomalySeverity: String?
+
+    /// Total age anomaly risk points
+    var ageAnomalyRiskPoints: Int?
+
+    /// Simple struct for age anomaly results
+    struct AgeAnomaly: Codable, Identifiable, Hashable {
+        let id: UUID
+        let type: String
+        let title: String
+        let description: String
+        let severity: String
+        let riskPoints: Int
+        let plistAge: String
+        let binaryAge: String
+        let timeDifference: String
+
+        init(from anomaly: BinaryAgeAnalyzer.AgeAnomaly) {
+            self.id = anomaly.id
+            self.type = anomaly.type.rawValue
+            self.title = anomaly.title
+            self.description = anomaly.description
+            self.severity = anomaly.severity.rawValue
+            self.riskPoints = anomaly.riskPoints
+            self.plistAge = anomaly.plistAge
+            self.binaryAge = anomaly.binaryAge
+            self.timeDifference = anomaly.timeDifference
+        }
+
+        init(id: UUID = UUID(), type: String, title: String, description: String, severity: String, riskPoints: Int, plistAge: String, binaryAge: String, timeDifference: String) {
+            self.id = id
+            self.type = type
+            self.title = title
+            self.description = description
+            self.severity = severity
+            self.riskPoints = riskPoints
+            self.plistAge = plistAge
+            self.binaryAge = binaryAge
+            self.timeDifference = timeDifference
+        }
+    }
+
     // MARK: - Initialization
 
     init(

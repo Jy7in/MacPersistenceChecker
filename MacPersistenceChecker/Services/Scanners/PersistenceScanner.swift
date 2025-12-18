@@ -201,6 +201,37 @@ final class ScannerOrchestrator: ObservableObject {
                 item.riskScore = assessment.score
                 item.riskDetails = assessment.details
 
+                // LOLBins Detection
+                let lolbinsDetections = LOLBinsDetector.shared.analyze(item)
+                if !lolbinsDetections.isEmpty {
+                    item.lolbinsDetections = lolbinsDetections.map { PersistenceItem.LOLBinDetection(from: $0) }
+                    item.lolbinsRisk = LOLBinsDetector.shared.totalRiskPoints(lolbinsDetections)
+                }
+
+                // Binary Reputation / Behavioral Analysis
+                let reputationResult = BinaryReputationAnalyzer.shared.analyze(item)
+                if reputationResult.hasAnomalies {
+                    item.behavioralAnomalies = reputationResult.anomalies.map { PersistenceItem.BehavioralAnomaly(from: $0) }
+                    item.behavioralSeverity = reputationResult.overallSeverity.rawValue
+                    item.behavioralRiskPoints = reputationResult.totalRiskPoints
+                }
+
+                // Intent Mismatch Analysis (plist intent vs binary reality)
+                let intentResult = IntentMismatchAnalyzer.shared.analyze(item, entitlements: entitlements)
+                if intentResult.hasMismatches {
+                    item.intentMismatches = intentResult.mismatches.map { PersistenceItem.IntentMismatch(from: $0) }
+                    item.intentMismatchSeverity = intentResult.overallSeverity.rawValue
+                    item.intentMismatchRiskPoints = intentResult.totalRiskPoints
+                }
+
+                // Binary Age Analysis (plist age vs binary age)
+                let ageResult = BinaryAgeAnalyzer.shared.analyze(item)
+                if ageResult.hasAnomalies {
+                    item.ageAnomalies = ageResult.anomalies.map { PersistenceItem.AgeAnomaly(from: $0) }
+                    item.ageAnomalySeverity = ageResult.overallSeverity.rawValue
+                    item.ageAnomalyRiskPoints = ageResult.totalRiskPoints
+                }
+
                 results.append(item)
             }
 
