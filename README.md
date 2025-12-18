@@ -240,8 +240,6 @@ Without Full Disk Access, some items may not be visible.
   - Aggressive Watchdog detection (KeepAlive + low StartInterval)
   - No Throttle Limit warning (KeepAlive without ThrottleInterval)
 - **Improved Permission Handling** - Fixed issue where Full Disk Access prompt would reappear on every launch
-
-### v1.5
 - **Enhanced Data Visualization** - Complete overhaul of statistical charts and graphs using Swift Charts
 - **Security Profile Chart** - New comprehensive radar chart in item details showing Trust, Signature, Safety, Stability, Transparency, and Age dimensions
 - **Risk Distribution Histogram** - Visual breakdown of items by risk bands (Low, Medium, High, Critical)
