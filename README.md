@@ -248,12 +248,40 @@ Machine-readable export for security pipelines:
 
 ---
 
+## Containment System
+
+Safely neutralize suspicious persistence items without permanent deletion:
+
+### Containment Actions
+- **Quick Contain** - Disable persistence + block network (recommended)
+- **Disable Only** - Remove from auto-start without network block
+- **Network Block Only** - Block network access while keeping persistence active
+
+### Safety Features
+- **Automatic Backup** - Original plist saved before any modification
+- **Timed Release** - Auto-restore after configurable timeout (default 24h)
+- **Manual Release** - Instantly restore contained items
+- **Action Log** - Complete audit trail of all containment actions
+
+### Network Blocking
+- PF firewall rules to block outbound connections
+- Per-binary blocking by executable path
+- Survives app restart
+
+### Use Cases
+- Quarantine suspicious item while investigating
+- Test if removing persistence breaks functionality
+- Temporarily disable without losing configuration
+
+---
+
 ## Actions
 
 - **Reveal in Finder** - Quickly locate files
 - **Open Plist** - View configuration files
 - **View Graph** - Per-item graph visualization
 - **Disable/Enable** - Safely disable items (with admin privileges for system items)
+- **Contain** - Quarantine suspicious items with automatic backup
 - **Export JSON** - Export forensic report for SIEM/SOAR/IR
 
 ---
