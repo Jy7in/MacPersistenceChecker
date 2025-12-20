@@ -3,6 +3,7 @@ import SwiftUI
 /// Settings view for the Persistence Change Monitor
 struct MonitoringSettingsView: View {
     @StateObject private var config = MonitorConfiguration.shared
+    @StateObject private var aiConfig = AIConfiguration.shared
     @StateObject private var monitor = PersistenceMonitor.shared
     @State private var showingResetAlert = false
 
@@ -12,22 +13,28 @@ struct MonitoringSettingsView: View {
                 // Header
                 headerSection
 
-                // Status Section
+                // Status Section with AI indicator
                 statusSection
+
+                // AI Toggle (only if API key is configured)
+                if aiConfig.isAIAvailable {
+                    aiToggleSection
+                }
 
                 // Enable/Disable Toggle
                 mainToggleSection
 
-                if config.monitoringEnabled || monitor.isMonitoring {
-                    // Settings Sections
+                // Settings - always visible, content depends on AI toggle
+                if aiConfig.useAI && aiConfig.isAIAvailable {
+                    aiSettingsSection
+                } else {
                     notificationSettingsSection
                     sensitivitySection
-                    categoriesSection
-                    baselineSection
+                    presetsSection
                 }
 
-                // Presets
-                presetsSection
+                categoriesSection
+                baselineSection
 
                 Spacer()
             }
@@ -60,48 +67,111 @@ struct MonitoringSettingsView: View {
 
     private var statusSection: some View {
         GroupBox {
-            HStack {
-                // Status indicator
-                Circle()
-                    .fill(statusColor)
-                    .frame(width: 10, height: 10)
-
-                Text(monitor.statusDescription)
-                    .font(.subheadline)
-
-                Spacer()
-
-                if monitor.isMonitoring {
-                    Button("Stop") {
-                        monitor.stopMonitoring()
-                    }
-                    .buttonStyle(.bordered)
-                } else {
-                    Button("Start") {
-                        Task {
-                            await monitor.startMonitoring()
-                        }
-                    }
-                    .buttonStyle(.borderedProminent)
-                }
-            }
-
-            if monitor.unacknowledgedCount > 0 {
-                Divider()
+            VStack(alignment: .leading, spacing: 12) {
+                // Main status row
                 HStack {
-                    Image(systemName: "bell.badge.fill")
-                        .foregroundColor(.orange)
-                    Text("\(monitor.unacknowledgedCount) unacknowledged changes")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    Circle()
+                        .fill(statusColor)
+                        .frame(width: 10, height: 10)
+
+                    Text(monitor.statusDescription)
+                        .font(.subheadline)
+
                     Spacer()
-                    Button("Acknowledge All") {
-                        monitor.acknowledgeAllChanges()
+
+                    if monitor.isMonitoring {
+                        Button("Stop") {
+                            monitor.stopMonitoring()
+                        }
+                        .buttonStyle(.bordered)
+                    } else {
+                        Button("Start") {
+                            Task {
+                                await monitor.startMonitoring()
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
+                }
+
+                // Current mode info
+                Divider()
+                HStack(spacing: 16) {
+                    // Mode
+                    HStack(spacing: 4) {
+                        Image(systemName: isUsingAI ? "brain" : "eye")
+                            .foregroundColor(isUsingAI ? .purple : .blue)
+                        Text(isUsingAI ? "AI Analysis" : "Standard")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                    }
+
+                    Divider().frame(height: 16)
+
+                    // Interval
+                    HStack(spacing: 4) {
+                        Image(systemName: "clock")
+                            .foregroundColor(.secondary)
+                        Text(currentIntervalText)
+                            .font(.caption)
+                    }
+
+                    Divider().frame(height: 16)
+
+                    // Threshold
+                    HStack(spacing: 4) {
+                        Image(systemName: "bell")
+                            .foregroundColor(.secondary)
+                        Text(currentThresholdText)
+                            .font(.caption)
+                    }
+
+                    Spacer()
+                }
+                .foregroundColor(.secondary)
+
+                if monitor.unacknowledgedCount > 0 {
+                    Divider()
+                    HStack {
+                        Image(systemName: "bell.badge.fill")
+                            .foregroundColor(.orange)
+                        Text("\(monitor.unacknowledgedCount) unacknowledged changes")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Button("Acknowledge All") {
+                            monitor.acknowledgeAllChanges()
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
                 }
             }
+        }
+    }
+
+    // Helper computed properties for status display
+    private var isUsingAI: Bool {
+        aiConfig.useAI && aiConfig.isAIAvailable
+    }
+
+    private var currentIntervalText: String {
+        if isUsingAI {
+            let interval = aiConfig.aiCheckInterval
+            if let option = AIConfiguration.intervalOptions.first(where: { $0.0 == interval }) {
+                return option.1
+            }
+            return "\(Int(interval))s"
+        } else {
+            return "Real-time"
+        }
+    }
+
+    private var currentThresholdText: String {
+        if isUsingAI {
+            return "≥ \(aiConfig.notificationThreshold.displayName)"
+        } else {
+            return "Relevance ≥ \(config.minimumRelevanceScore)"
         }
     }
 
@@ -137,6 +207,113 @@ struct MonitoringSettingsView: View {
         }
     }
 
+    // MARK: - AI Toggle Section
+
+    private var aiToggleSection: some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 12) {
+                Toggle(isOn: $aiConfig.useAI) {
+                    HStack {
+                        Image(systemName: "brain")
+                            .foregroundColor(.accentColor)
+                        VStack(alignment: .leading) {
+                            Text("Use AI Analysis")
+                                .fontWeight(.medium)
+                            Text("Claude analyzes changes and decides if you should be notified")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+                .toggleStyle(.switch)
+
+                if aiConfig.useAI {
+                    HStack {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                        Text("AI-powered analysis is active")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - AI Settings Section
+
+    private var aiSettingsSection: some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    Image(systemName: "brain")
+                        .foregroundColor(.accentColor)
+                    Text("AI Analysis Settings")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                }
+
+                // Model
+                HStack {
+                    Text("Model")
+                        .frame(width: 100, alignment: .leading)
+                    Picker("", selection: $aiConfig.claudeModel) {
+                        ForEach(AIConfiguration.availableModels, id: \.0) { model in
+                            Text(model.1).tag(model.0)
+                        }
+                    }
+                    .labelsHidden()
+                }
+
+                // Check Interval
+                HStack {
+                    Text("Check Interval")
+                        .frame(width: 100, alignment: .leading)
+                    Picker("", selection: $aiConfig.aiCheckInterval) {
+                        ForEach(AIConfiguration.intervalOptions, id: \.0) { option in
+                            Text(option.1).tag(option.0)
+                        }
+                    }
+                    .labelsHidden()
+                }
+
+                // Notification Threshold
+                HStack {
+                    Text("Notify when")
+                        .frame(width: 100, alignment: .leading)
+                    Picker("", selection: $aiConfig.notificationThreshold) {
+                        ForEach(AISeverity.allCases, id: \.self) { severity in
+                            Text("Severity \u{2265} \(severity.displayName)").tag(severity)
+                        }
+                    }
+                    .labelsHidden()
+                }
+
+                Divider()
+
+                Text("Analysis Behavior")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Toggle("Ignore Apple-signed items", isOn: $aiConfig.promptOptions.ignoreAppleSigned)
+                    Toggle("Deprioritize system paths", isOn: $aiConfig.promptOptions.ignoreSystemPaths)
+                    Toggle("Prioritize unsigned executables", isOn: $aiConfig.promptOptions.prioritizeUnsigned)
+                    Toggle("Focus on LOLBins detection", isOn: $aiConfig.promptOptions.focusLOLBins)
+                }
+                .font(.caption)
+
+                // Link to full AI settings
+                HStack {
+                    Spacer()
+                    Text("More options in AI tab")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
+    }
+
     // MARK: - Notification Settings
 
     private var notificationSettingsSection: some View {
@@ -163,6 +340,23 @@ struct MonitoringSettingsView: View {
 
                 Toggle("Show badge on app icon", isOn: $config.showBadge)
                     .toggleStyle(.switch)
+
+                Divider()
+
+                // Notification cooldown
+                HStack {
+                    Text("Don't repeat same item for")
+                    Spacer()
+                    Picker("", selection: $config.notificationCooldownHours) {
+                        Text("1 hour").tag(1)
+                        Text("2 hours").tag(2)
+                        Text("4 hours").tag(4)
+                        Text("8 hours").tag(8)
+                        Text("24 hours").tag(24)
+                    }
+                    .labelsHidden()
+                    .frame(width: 100)
+                }
             }
         }
     }

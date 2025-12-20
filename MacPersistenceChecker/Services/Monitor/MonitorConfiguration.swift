@@ -18,6 +18,7 @@ final class MonitorConfiguration: ObservableObject {
         static let notifyOnModify = "MonitorNotifyOnModify"
         static let playSoundOnHighRelevance = "MonitorPlaySoundHighRelevance"
         static let showBadge = "MonitorShowBadge"
+        static let notificationCooldownHours = "MonitorNotificationCooldownHours"
     }
 
     // MARK: - Published Properties
@@ -75,6 +76,15 @@ final class MonitorConfiguration: ObservableObject {
         didSet { save(showBadge, for: Keys.showBadge) }
     }
 
+    /// Notification cooldown in hours (don't repeat same item notification)
+    @Published var notificationCooldownHours: Int {
+        didSet { save(notificationCooldownHours, for: Keys.notificationCooldownHours) }
+    }
+
+    /// Track when we last notified for each item (identifier -> timestamp)
+    private var lastNotificationTimes: [String: Date] = [:]
+    private let lastNotificationTimesLock = NSLock()
+
     // MARK: - Computed Properties
 
     /// All categories that are enabled for monitoring (considering both scanner config and monitor config)
@@ -120,9 +130,13 @@ final class MonitorConfiguration: ObservableObject {
         let savedCooldown = defaults.double(forKey: Keys.cooldownInterval)
         self.cooldownInterval = savedCooldown > 0 ? savedCooldown : 5.0  // Default 5 seconds
 
-        // Load minimum relevance
+        // Load minimum relevance (default 50 = medium)
         let savedRelevance = defaults.integer(forKey: Keys.minimumRelevance)
-        self.minimumRelevanceScore = savedRelevance > 0 ? savedRelevance : 30  // Default threshold
+        self.minimumRelevanceScore = savedRelevance > 0 ? savedRelevance : 50
+
+        // Load notification cooldown (default 2 hours)
+        let savedNotifCooldown = defaults.integer(forKey: Keys.notificationCooldownHours)
+        self.notificationCooldownHours = savedNotifCooldown > 0 ? savedNotifCooldown : 2
 
         // Load enabled categories
         if let savedCategories = defaults.array(forKey: Keys.enabledCategories) as? [String] {
@@ -169,6 +183,35 @@ final class MonitorConfiguration: ObservableObject {
         case .modified, .enabled, .disabled:
             return notifyOnModify
         }
+    }
+
+    /// Check if we can send notification for this item (respects cooldown)
+    func canNotify(forIdentifier identifier: String) -> Bool {
+        lastNotificationTimesLock.lock()
+        defer { lastNotificationTimesLock.unlock() }
+
+        guard let lastTime = lastNotificationTimes[identifier] else {
+            return true // Never notified before
+        }
+
+        let hoursSinceLastNotification = Date().timeIntervalSince(lastTime) / 3600
+        return hoursSinceLastNotification >= Double(notificationCooldownHours)
+    }
+
+    /// Record that we sent a notification for this item
+    func recordNotification(forIdentifier identifier: String) {
+        lastNotificationTimesLock.lock()
+        defer { lastNotificationTimesLock.unlock() }
+        lastNotificationTimes[identifier] = Date()
+    }
+
+    /// Clear old notification records (call periodically)
+    func cleanupOldNotificationRecords() {
+        lastNotificationTimesLock.lock()
+        defer { lastNotificationTimesLock.unlock() }
+
+        let cutoff = Date().addingTimeInterval(-Double(notificationCooldownHours) * 3600)
+        lastNotificationTimes = lastNotificationTimes.filter { $0.value > cutoff }
     }
 
     // MARK: - Private Helpers

@@ -84,6 +84,15 @@ struct ContentView: View {
             ToolbarItem(placement: .primaryAction) {
                 ForensicExportButton()
             }
+
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    openSettingsWindow()
+                } label: {
+                    Label("Settings", systemImage: "gearshape")
+                }
+                .help("Open Settings")
+            }
         }
         .sheet(isPresented: $appState.showSnapshotsSheet) {
             SnapshotListView()

@@ -206,15 +206,157 @@ Comprehensive radar chart showing Trust, Signature, Safety, Stability, Transpare
 
 ## Real-time Monitoring
 
+Continuous monitoring of persistence changes with two analysis modes.
+
+### Monitoring Modes
+
+**Standard Mode**
+- FSEvents-based real-time file system monitoring
+- Intelligent noise suppression with configurable debounce
+- Relevance scoring to filter insignificant changes
+- Immediate notifications for high-relevance changes
+
+**AI Mode** (requires Claude API key)
+- Claude AI analyzes each detected change
+- Full context sent to AI: signature info, LOLBins, behavioral anomalies, risk scores
+- AI decides if change warrants notification based on actual threat level
+- Configurable check interval (30s to 1 hour)
+- Severity threshold filtering (Info, Low, Medium, High, Critical)
+
 ### Menu Bar Integration
-- Monitoring status indicator
+- Real-time monitoring status indicator
+- Mode badge showing "AI" or "Std"
 - Quick controls (Start/Stop monitoring, trigger scan)
+- Settings access
 - Badge count for unacknowledged changes
+- Last detected change preview
+
+### Notification Deduplication
+- Same item won't trigger repeated notifications within cooldown period
+- Configurable cooldown (1-24 hours, default 2 hours)
+- Prevents notification fatigue from frequently-changing items
+
+### Startup Notification
+When monitoring starts, you receive a notification confirming:
+- Active mode (AI Mode or Standard Mode)
+- Check interval (AI) or "Real-time" (Standard)
+- Notification threshold settings
 
 ### Change Detection
-- FSEvents-based monitoring with intelligent noise suppression
-- Notifications for new, modified, or removed persistence items
-- Baseline comparison
+- **Added** - New persistence items
+- **Removed** - Deleted items
+- **Modified** - Configuration changes (enabled/disabled, path changes, etc.)
+- **Enabled/Disabled** - State changes
+
+### AI Analysis Details
+When AI mode is active, each change sends complete item data to Claude:
+- Basic info (name, category, paths, plist content)
+- Signature details (signed, Apple, notarized, team ID, certificate status)
+- Risk assessment (score, detailed breakdown)
+- LOLBins detections with MITRE mappings
+- Behavioral anomalies
+- Intent mismatches (plist vs binary)
+- Age anomalies (timestamp analysis)
+- Signed-but-dangerous flags
+
+Claude responds with:
+- `shouldNotify` - Whether to alert the user
+- `severity` - Threat level assessment
+- `title` - Notification title
+- `explanation` - Why this is or isn't suspicious
+- `recommendation` - Suggested action
+- `mitreTechniques` - Relevant ATT&CK techniques
+
+### AI Customization
+
+Control how the AI analyzes changes via **Settings → AI**:
+
+**Structured Options**
+| Option | Default | Effect |
+|--------|---------|--------|
+| Ignore Apple-signed | ON | Deprioritize items signed by Apple (com.apple.*) |
+| Ignore system paths | ON | Deprioritize /System and /Library paths |
+| Prioritize unsigned | ON | Extra attention to unsigned executables |
+| Focus on LOLBins | ON | Prioritize Living-off-the-Land Binaries detection |
+| Minimum risk score | 0 | Only analyze items with risk >= threshold |
+| Ignored paths | - | Custom paths to skip (comma-separated) |
+
+**Notification Threshold**
+- `Info` - Notify everything
+- `Low` - Notify low severity and above
+- `Medium` - Notify medium and above (default)
+- `High` - Only high and critical
+- `Critical` - Only critical threats
+
+**Custom Prompt**
+Add your own instructions that are appended to the AI prompt. Examples:
+```
+Always notify me if an item uses python or osascript.
+Ignore anything from Microsoft.
+Be more aggressive with unsigned items from ~/Downloads.
+```
+
+The AI uses these preferences to make smarter decisions. For example:
+- Unsigned LaunchAgent from `/tmp/` → **Critical notification**
+- Signed Dropbox update → **No notification (info)**
+- `osascript` with `RunAtLoad` → **High notification**
+
+---
+
+## MCP Server (Claude Code Integration)
+
+MacPersistenceChecker includes an MCP (Model Context Protocol) server that allows Claude Code, Claude Desktop, and other MCP-compatible clients to query persistence data.
+
+### Building the MCP Server
+
+```bash
+swift build --target MPCServer
+```
+
+The binary is created at `.build/debug/mpc-server`.
+
+### Available MCP Tools
+
+| Tool | Description |
+|------|-------------|
+| `get_current_state` | Get all current persistence items with optional filters |
+| `get_diff` | Get changes from baseline or specific snapshot |
+| `get_summary` | Compact overview with counts and top threats |
+| `get_item_details` | Full details for a specific item by identifier |
+| `get_risk_analysis` | Aggregated risk analysis with recommendations |
+| `get_snapshots` | List available snapshots with metadata |
+| `compare_snapshots` | Compare two snapshots for changes |
+
+### Claude Code Configuration
+
+Add to your Claude Code MCP settings (`~/.claude/claude_desktop_config.json` or similar):
+
+```json
+{
+  "mcpServers": {
+    "macpersistence": {
+      "command": "/path/to/mpc-server",
+      "args": []
+    }
+  }
+}
+```
+
+### Example Queries
+
+Once configured, you can ask Claude Code:
+- "What persistence items are on this Mac?"
+- "Show me unsigned items with high risk scores"
+- "What changed since the last snapshot?"
+- "Analyze the risk of items in the LaunchAgents category"
+- "Compare today's snapshot with yesterday's"
+
+### MCP Server Features
+- Read-only access to MacPersistenceChecker's SQLite database
+- JSON-RPC 2.0 protocol over stdio
+- Filters by category, trust level, risk score, Apple-signed status
+- Full snapshot and diff capabilities
+- No separate API key required (uses local database)
 
 ---
 

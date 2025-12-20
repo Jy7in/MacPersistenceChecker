@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import UserNotifications
 
 /// Main service for monitoring persistence changes in real-time
 final class PersistenceMonitor: ObservableObject {
@@ -137,6 +138,9 @@ final class PersistenceMonitor: ObservableObject {
             state = .running
             configuration.monitoringEnabled = true
             NSLog("[PersistenceMonitor] Monitoring started for %d categories", watchCount)
+
+            // Send initial notification with current mode
+            await sendStartupNotification(categoryCount: watchCount)
 
         case .failure(let error):
             state = .error(error.localizedDescription)
@@ -277,9 +281,10 @@ final class PersistenceMonitor: ObservableObject {
 
         NSLog("[PersistenceMonitor] Detected %d changes in %@", changes.count, category.displayName)
 
-        // Get config value once
+        // Check if AI is active
+        let isAIActive = await MainActor.run { AIConfiguration.shared.isAIActive }
         let minRelevance = await MainActor.run { configuration.minimumRelevanceScore }
-        NSLog("[PersistenceMonitor] Min relevance threshold: %d", minRelevance)
+        NSLog("[PersistenceMonitor] AI active: %@, Min relevance threshold: %d", isAIActive ? "YES" : "NO", minRelevance)
 
         // Process each change
         for change in changes {
@@ -290,21 +295,36 @@ final class PersistenceMonitor: ObservableObject {
             let historyEntry = ChangeHistoryEntry(from: change, relevanceScore: relevance)
             try? DatabaseManager.shared.saveChangeHistory(historyEntry)
 
-            // Only notify for relevant changes
-            if relevance >= minRelevance {
-                NSLog("[PersistenceMonitor] Sending notification...")
-                // Send notification (may involve main thread)
-                await NotificationDispatcher.shared.send(change: change, relevance: relevance)
-                NSLog("[PersistenceMonitor] Notification sent!")
+            // Check notification cooldown (don't repeat same item)
+            let itemIdentifier = change.item?.identifier ?? "unknown"
+            let canNotify = configuration.canNotify(forIdentifier: itemIdentifier)
 
-                // Update UI state on main thread
-                await MainActor.run { [weak self] in
-                    self?.lastChange = change
-                    self?.changeCount += 1
-                    self?.unacknowledgedCount += 1
-                }
+            if !canNotify {
+                NSLog("[PersistenceMonitor] Skipping notification - cooldown active for: %@", itemIdentifier)
+                continue
+            }
+
+            if isAIActive {
+                // AI-powered analysis
+                await processChangeWithAI(change)
             } else {
-                NSLog("[PersistenceMonitor] Change below threshold (%d < %d): %@", relevance, minRelevance, change.item?.name ?? "unknown")
+                // Traditional relevance-based notification
+                if relevance >= minRelevance {
+                    NSLog("[PersistenceMonitor] Sending notification...")
+                    await NotificationDispatcher.shared.send(change: change, relevance: relevance)
+                    NSLog("[PersistenceMonitor] Notification sent!")
+
+                    // Record notification to prevent repeats
+                    configuration.recordNotification(forIdentifier: itemIdentifier)
+
+                    await MainActor.run { [weak self] in
+                        self?.lastChange = change
+                        self?.changeCount += 1
+                        self?.unacknowledgedCount += 1
+                    }
+                } else {
+                    NSLog("[PersistenceMonitor] Change below threshold (%d < %d): %@", relevance, minRelevance, change.item?.name ?? "unknown")
+                }
             }
         }
 
@@ -318,6 +338,169 @@ final class PersistenceMonitor: ObservableObject {
             AppState.shared.items.append(contentsOf: newItems)
         }
         NSLog("[PersistenceMonitor] AppState updated")
+    }
+
+    // MARK: - Startup Notification
+
+    /// Send notification when monitoring starts showing current mode
+    @MainActor
+    private func sendStartupNotification(categoryCount: Int) async {
+        let aiConfig = AIConfiguration.shared
+        let isAI = aiConfig.useAI && aiConfig.isAPIKeyValid
+
+        NSLog("[PersistenceMonitor] Startup notification - useAI: %@, isAPIKeyValid: %@, isAIActive: %@",
+              aiConfig.useAI ? "YES" : "NO",
+              aiConfig.isAPIKeyValid ? "YES" : "NO",
+              isAI ? "YES" : "NO")
+
+        let content = UNMutableNotificationContent()
+
+        if isAI {
+            content.title = "Monitoring Started (AI Mode)"
+            let intervalText = AIConfiguration.intervalOptions.first { $0.0 == aiConfig.aiCheckInterval }?.1 ?? "\(Int(aiConfig.aiCheckInterval))s"
+            content.body = "Claude AI will analyze changes. Check: \(intervalText), Notify: ≥\(aiConfig.notificationThreshold.displayName)"
+        } else {
+            content.title = "Monitoring Started (Standard Mode)"
+            content.body = "Real-time monitoring active. \(categoryCount) categories, Relevance threshold: \(configuration.minimumRelevanceScore)"
+        }
+
+        content.sound = .default
+        content.categoryIdentifier = "MONITORING_STATUS"
+
+        let request = UNNotificationRequest(
+            identifier: "monitoring-started-\(UUID().uuidString)",
+            content: content,
+            trigger: nil
+        )
+
+        do {
+            try await UNUserNotificationCenter.current().add(request)
+            NSLog("[PersistenceMonitor] Startup notification sent")
+        } catch {
+            NSLog("[PersistenceMonitor] Failed to send startup notification: %@", error.localizedDescription)
+        }
+    }
+
+    // MARK: - AI-Powered Change Analysis
+
+    /// Process a change using Claude AI analysis
+    private func processChangeWithAI(_ change: MonitorChange) async {
+        guard let item = change.item else {
+            NSLog("[PersistenceMonitor] No item in change, skipping AI analysis")
+            return
+        }
+
+        NSLog("[PersistenceMonitor] Starting AI analysis for: %@", item.name)
+
+        // Determine change type and details
+        let changeType: String
+        var changeDetails: [String]? = nil
+
+        switch change.type {
+        case .added:
+            changeType = "added"
+        case .removed:
+            changeType = "removed"
+        case .modified:
+            changeType = "modified"
+            // Include modification details from change.details
+            if !change.details.isEmpty {
+                changeDetails = change.details.map { "\($0.field): \($0.oldValue) → \($0.newValue)" }
+            }
+        case .enabled:
+            changeType = "enabled"
+        case .disabled:
+            changeType = "disabled"
+        }
+
+        // Create detailed analysis with all item info
+        let analysis = await MainActor.run {
+            ClaudeAPIClient.createDetailedAnalysis(
+                from: item,
+                changeType: changeType,
+                changes: changeDetails
+            )
+        }
+
+        // Call Claude API
+        do {
+            let apiClient = await MainActor.run { ClaudeAPIClient() }
+            let response = try await apiClient.analyzeItem(analysis)
+
+            NSLog("[PersistenceMonitor] AI response - shouldNotify: %@, severity: %@", response.shouldNotify ? "YES" : "NO", response.severity)
+
+            // Check if we should notify based on AI decision and threshold
+            let threshold = await MainActor.run { AIConfiguration.shared.notificationThreshold }
+            let responseSeverity = AISeverity(rawValue: response.severity) ?? .info
+
+            if response.shouldNotify && responseSeverity >= threshold {
+                NSLog("[PersistenceMonitor] AI recommends notification - sending...")
+
+                // Send AI-generated notification
+                await sendAINotification(
+                    item: item,
+                    changeType: changeType,
+                    response: response
+                )
+
+                // Record notification to prevent repeats
+                configuration.recordNotification(forIdentifier: item.identifier)
+
+                // Update UI state
+                await MainActor.run { [weak self] in
+                    self?.lastChange = change
+                    self?.changeCount += 1
+                    self?.unacknowledgedCount += 1
+                }
+            } else {
+                NSLog("[PersistenceMonitor] AI says no notification needed or below threshold")
+            }
+
+        } catch {
+            NSLog("[PersistenceMonitor] AI analysis failed: %@", error.localizedDescription)
+            // Fallback to simple notification on error
+            await NotificationDispatcher.shared.send(change: change, relevance: 50)
+        }
+    }
+
+    /// Send notification with AI-generated content
+    private func sendAINotification(
+        item: PersistenceItem,
+        changeType: String,
+        response: ClaudeAPIClient.SingleItemAnalysisResponse
+    ) async {
+        let content = UNMutableNotificationContent()
+        content.title = response.title
+        content.subtitle = "\(item.category.displayName) - \(changeType)"
+        content.body = response.explanation
+        content.categoryIdentifier = "PERSISTENCE_CHANGE"
+        content.userInfo = [
+            "itemIdentifier": item.identifier,
+            "category": item.category.rawValue,
+            "severity": response.severity,
+            "changeType": changeType
+        ]
+
+        // Set sound based on severity
+        let severity = AISeverity(rawValue: response.severity) ?? .info
+        if severity >= .high {
+            content.sound = .defaultCritical
+        } else if severity >= .medium {
+            content.sound = .default
+        }
+
+        let request = UNNotificationRequest(
+            identifier: UUID().uuidString,
+            content: content,
+            trigger: nil
+        )
+
+        do {
+            try await UNUserNotificationCenter.current().add(request)
+            NSLog("[PersistenceMonitor] AI notification sent: %@", response.title)
+        } catch {
+            NSLog("[PersistenceMonitor] Failed to send AI notification: %@", error.localizedDescription)
+        }
     }
 }
 

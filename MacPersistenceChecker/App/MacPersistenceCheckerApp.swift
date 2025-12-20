@@ -136,12 +136,17 @@ struct SettingsView: View {
                     Label("Monitoring", systemImage: "eye")
                 }
 
+            AISettingsView()
+                .tabItem {
+                    Label("AI", systemImage: "brain")
+                }
+
             AboutView()
                 .tabItem {
                     Label("About", systemImage: "info.circle")
                 }
         }
-        .frame(width: 550, height: 600)
+        .frame(width: 600, height: 650)
     }
 }
 

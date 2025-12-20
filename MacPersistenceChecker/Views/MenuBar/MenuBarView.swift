@@ -4,6 +4,12 @@ import SwiftUI
 struct MenuBarView: View {
     @ObservedObject var monitor: PersistenceMonitor
     @ObservedObject var appState: AppState
+    @ObservedObject var aiConfig = AIConfiguration.shared
+
+    /// Whether AI mode is active
+    private var isAIMode: Bool {
+        aiConfig.useAI && aiConfig.isAPIKeyValid
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -15,6 +21,21 @@ struct MenuBarView: View {
                 Text(monitor.isMonitoring ? "Monitoring Active" : "Monitoring Off")
                     .font(.headline)
                 Spacer()
+                // Mode indicator
+                if monitor.isMonitoring {
+                    HStack(spacing: 4) {
+                        Image(systemName: isAIMode ? "brain" : "eye")
+                            .font(.caption)
+                        Text(isAIMode ? "AI" : "Std")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                    }
+                    .foregroundColor(isAIMode ? .purple : .blue)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(isAIMode ? Color.purple.opacity(0.2) : Color.blue.opacity(0.2))
+                    .cornerRadius(4)
+                }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
@@ -146,6 +167,26 @@ struct MenuBarView: View {
                         .frame(width: 20)
                     Text("Open MacPersistenceChecker")
                     Spacer()
+                }
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+
+            Divider()
+
+            // Settings
+            Button(action: {
+                openSettingsWindow()
+            }) {
+                HStack {
+                    Image(systemName: "gearshape")
+                        .frame(width: 20)
+                    Text("Settings...")
+                    Spacer()
+                    Text("⌘,")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
             }
             .buttonStyle(.plain)
