@@ -440,7 +440,7 @@ Safely neutralize suspicious persistence items without permanent deletion:
 
 ![Extended Scanners](imm/6.png)
 
-![Extended Scanners Settings](imm/5.png)
+![Extended Scanners Settings](imm/10.png)
 
 ![App Invasiveness](imm/7.png)
 
